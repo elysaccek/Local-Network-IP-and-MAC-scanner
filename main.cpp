@@ -5,50 +5,19 @@
 #include <string>
 #include <vector>
 
-// --> Mac address
+// --> IP Mac address
 #include <array>
 #include <winsock2.h>
 #include <iphlpapi.h>
 
 #pragma comment(lib, "iphlpapi.lib")
 #pragma comment(lib, "ws2_32.lib")
-// <-- Mac adress
+// <-- IP Mac adress
 
 // Thread
 #include <windows.h>
 
 bool checkMAC;
-
-/*
-- This function sends back the mac address of the entered ip address.
-*/
-std::string getMACAddress(const std::string& ipAddress) {
-    ULONG destIpAddress = inet_addr(ipAddress.c_str());
-
-    IPAddr srcIpAddress = 0;
-    ULONG macAddress[2];
-    ULONG macAddressLen = 6;
-
-    DWORD replyStatus = 0;
-
-    std::array<char, 100> macAddressStr;
-
-    DWORD result = SendARP(destIpAddress, srcIpAddress, macAddress, &macAddressLen);
-
-    if (result == NO_ERROR) {
-        snprintf(macAddressStr.data(), macAddressStr.size(), "%02X:%02X:%02X:%02X:%02X:%02X",
-                 static_cast<int>(macAddress[0] & 0xFF),
-                 static_cast<int>((macAddress[0] >> 8) & 0xFF),
-                 static_cast<int>((macAddress[0] >> 16) & 0xFF),
-                 static_cast<int>((macAddress[1] >> 0) & 0xFF),
-                 static_cast<int>((macAddress[1] >> 8) & 0xFF),
-                 static_cast<int>((macAddress[1] >> 16) & 0xFF));
-
-        return std::string(macAddressStr.data());
-    }
-
-    return "";
-}
 
 /*
 - This function returns a vector string that stores all the ip addresses in the range.
@@ -81,39 +50,35 @@ std::vector<std::string> getIPRange(const std::string& startIP, const std::strin
 }
 
 /*
-- Thread function that pings ip address.
+- Thread function check that ip and mac address exists.
 */
-DWORD WINAPI pingIP(LPVOID lpParam) {
-    std::string ip = reinterpret_cast<char*>(lpParam);
-    
-    std::string scan = "ping -n 4 " + ip;
-    
-    // Sends a command to the command line and returns the returned output.
-    FILE* pipe = _popen(scan.data(), "r");
-    if (pipe == nullptr) {
-        std::cout << "Command error!" << std::endl;
-        return 0;
-    }
-    
-    char buffer[128];
-    std::string result = "";
-    
-    while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-        result += buffer;
-    }
-    
-    _pclose(pipe);
-    
-    if (result.find("TTL=") != std::string::npos) {
+DWORD WINAPI checkIPExists(LPVOID lpParam) {
+    std::string ipAddress = reinterpret_cast<char*>(lpParam);
+    ULONG destIpAddress = inet_addr(ipAddress.c_str());
+
+    IPAddr srcIpAddress = 0;
+    ULONG macAddress[2];
+    ULONG macAddressLen = 6;
+
+    DWORD replyStatus = 0;
+
+    std::array<char, 100> macAddressStr;
+
+    DWORD result = SendARP(destIpAddress, srcIpAddress, macAddress, &macAddressLen);
+
+    if (result == NO_ERROR) {
+        snprintf(macAddressStr.data(), macAddressStr.size(), "%02X:%02X:%02X:%02X:%02X:%02X",
+                 static_cast<int>(macAddress[0] & 0xFF),
+                 static_cast<int>((macAddress[0] >> 8) & 0xFF),
+                 static_cast<int>((macAddress[0] >> 16) & 0xFF),
+                 static_cast<int>((macAddress[1] >> 0) & 0xFF),
+                 static_cast<int>((macAddress[1] >> 8) & 0xFF),
+                 static_cast<int>((macAddress[1] >> 16) & 0xFF));
+
         if (checkMAC){
-            std::string macAddress = getMACAddress(ip);
-            if (!macAddress.empty()) {
-                std::cout << ip << " - " << macAddress << std::endl;
-            } else {
-                std::cout << ip << " - " << "MAC Address not found." << std::endl;
-            }  
-        } else {
-            std::cout << ip << std::endl;
+            std::cout << "IP address: " << ipAddress << " - MAC address: " << macAddressStr.data() << std::endl;            
+        }else{
+            std::cout << "IP address: " << ipAddress << std::endl;      
         }
     }
 
@@ -162,7 +127,7 @@ int main(int argc, char* argv[]) {
     std::vector<HANDLE> threads;
 
     for (const std::string& ip : ipRange) {
-        HANDLE hThread = CreateThread(NULL, 0, pingIP, reinterpret_cast<LPVOID>(const_cast<char*>(ip.c_str())), 0, NULL);
+        HANDLE hThread = CreateThread(NULL, 0, checkIPExists, reinterpret_cast<LPVOID>(const_cast<char*>(ip.c_str())), 0, NULL);
         
         if (hThread == NULL) {
             std::cerr << "Thread could not be created." << std::endl;

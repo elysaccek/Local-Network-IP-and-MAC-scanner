@@ -1,6 +1,5 @@
 # Local Network IP and MAC Scanner
-This **Local Network IP and MAC Scanner Project** is scans ip and mac addresses 
-in the local network as fast as possible using threads.
+This **Local Network IP and MAC Scanner Project** scans local network ip and mac addresses using **ARP** query and thread.
 
 ## Setup
 ```cmd
